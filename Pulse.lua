@@ -1041,15 +1041,14 @@
             end)
         end
 
-        -- aliases: full form first, short form last (the short form is also the TextChatService alias, no spaces allowed there)
-        library.commands = {
-            {name = "leave", usage = "/e q", short = "/q", info = "leave the game", aliases = {"/e q", "/q"}, run = function()
+                library.commands = {
+            {name = "leave", usage = "/e q", info = "leave the game", aliases = {"/e q"}, run = function()
                 if not pcall(function() game:Shutdown() end) then
                     lp:Kick("Left the game")
                 end
             end};
 
-            {name = "reset", usage = "/e r", short = "/r", info = "reset your character", aliases = {"/e r", "/r"}, run = function()
+            {name = "reset", usage = "/e r", info = "reset your character", aliases = {"/e r"}, run = function()
                 local character = lp.Character
                 local humanoid = get_humanoid()
 
@@ -1060,7 +1059,7 @@
                 end
             end};
 
-            {name = "speed", usage = "/e speed <number>", short = "/sp <number>", info = "set walk speed (off = default)", aliases = {"/e speed", "/sp"}, run = function(arg)
+            {name = "speed", usage = "/e speed <number>", info = "set walk speed (off = default)", aliases = {"/e speed"}, run = function(arg)
                 if arg == "off" or arg == "reset" then
                     library.state.speed = nil
 
@@ -1081,7 +1080,7 @@
                 notify("Speed: " .. library.state.speed)
             end};
 
-            {name = "jumppower", usage = "/e jumppower <number>  (/e jpower)", short = "/jp <number>", info = "set jump power (off = default)", aliases = {"/e jumppower", "/e jpower", "/jp"}, run = function(arg)
+            {name = "jumppower", usage = "/e jumppower <number>  (/e jpower)", info = "set jump power (off = default)", aliases = {"/e jumppower", "/e jpower"}, run = function(arg)
                 if arg == "off" or arg == "reset" then
                     library.state.jump_power = nil
 
@@ -1102,7 +1101,7 @@
                 notify("Jump power: " .. library.state.jump_power)
             end};
 
-            {name = "infinity jump", usage = "/e infinity jump  (/e infjump)", short = "/ij", info = "toggle infinite jump", aliases = {"/e infinity jump", "/e infjump", "/ij"}, run = function()
+            {name = "infinity jump", usage = "/e infinity jump  (/e infjump)", info = "toggle infinite jump", aliases = {"/e infinity jump", "/e infjump"}, run = function()
                 library.state.infinite_jump = not library.state.infinite_jump
                 notify("Infinite jump: " .. (library.state.infinite_jump and "on" or "off"))
             end};
@@ -1137,24 +1136,7 @@
                 end
             end
 
-            -- old chat
             library:connection(lp.Chatted, handle)
-
-            -- new chat (TextChatService): only the short single-word alias can be registered
-            pcall(function()
-                local tcs = game:GetService("TextChatService")
-
-                for _, command in library.commands do
-                    local object = Instance.new("TextChatCommand")
-                    object.Name = "Milenium_" .. command.name:gsub(" ", "_")
-                    object.PrimaryAlias = command.aliases[#command.aliases]
-                    object.Parent = tcs
-
-                    library:connection(object.Triggered, function(_, text)
-                        handle(text)
-                    end)
-                end
-            end)
 
             -- speed / jump power stay applied after respawn and when the game tries to change them
             library:connection(run.Heartbeat, function()
@@ -1199,7 +1181,6 @@
 
             for _, command in library.commands do
                 section:label({name = string.format("%s  <%s> - %s", command.usage, command.name, command.info)})
-                section:label({name = "short: " .. command.short})
             end
 
             local column = main:column({})
