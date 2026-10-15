@@ -1028,21 +1028,83 @@
             return cfg
         end
 
+        library.state = {speed = nil, jump_power = nil, infinite_jump = false}
+
+        local function get_humanoid()
+            local character = lp.Character
+            return character and character:FindFirstChildOfClass("Humanoid")
+        end
+
+        local function notify(text)
+            pcall(function()
+                notifications:create_notification({name = "Commands", info = text})
+            end)
+        end
+
+        -- aliases: full form first, short form last (the short form is also the TextChatService alias, no spaces allowed there)
         library.commands = {
-            {keys = {"/e q", "/q"}, name = "leave", info = "leave the game", run = function()
+            {name = "leave", usage = "/e q", short = "/q", info = "leave the game", aliases = {"/e q", "/q"}, run = function()
                 if not pcall(function() game:Shutdown() end) then
                     lp:Kick("Left the game")
                 end
             end};
-            {keys = {"/e r", "/r"}, name = "reset", info = "reset your character", run = function()
+
+            {name = "reset", usage = "/e r", short = "/r", info = "reset your character", aliases = {"/e r", "/r"}, run = function()
                 local character = lp.Character
-                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                local humanoid = get_humanoid()
 
                 if humanoid then
                     humanoid.Health = 0
                 elseif character then
                     character:BreakJoints()
                 end
+            end};
+
+            {name = "speed", usage = "/e speed <number>", short = "/sp <number>", info = "set walk speed (off = default)", aliases = {"/e speed", "/sp"}, run = function(arg)
+                if arg == "off" or arg == "reset" then
+                    library.state.speed = nil
+
+                    local humanoid = get_humanoid()
+                    if humanoid then
+                        humanoid.WalkSpeed = 16
+                    end
+
+                    return notify("Speed reset")
+                end
+
+                local number = tonumber(arg)
+                if not number then
+                    return notify("Usage: /e speed <number>")
+                end
+
+                library.state.speed = clamp(number, 0, 500)
+                notify("Speed: " .. library.state.speed)
+            end};
+
+            {name = "jumppower", usage = "/e jumppower <number>  (/e jpower)", short = "/jp <number>", info = "set jump power (off = default)", aliases = {"/e jumppower", "/e jpower", "/jp"}, run = function(arg)
+                if arg == "off" or arg == "reset" then
+                    library.state.jump_power = nil
+
+                    local humanoid = get_humanoid()
+                    if humanoid then
+                        humanoid.JumpPower = 50
+                    end
+
+                    return notify("Jump power reset")
+                end
+
+                local number = tonumber(arg)
+                if not number then
+                    return notify("Usage: /e jumppower <number>")
+                end
+
+                library.state.jump_power = clamp(number, 0, 1000)
+                notify("Jump power: " .. library.state.jump_power)
+            end};
+
+            {name = "infinity jump", usage = "/e infinity jump  (/e infjump)", short = "/ij", info = "toggle infinite jump", aliases = {"/e infinity jump", "/e infjump", "/ij"}, run = function()
+                library.state.infinite_jump = not library.state.infinite_jump
+                notify("Infinite jump: " .. (library.state.infinite_jump and "on" or "off"))
             end};
         }
 
@@ -1059,31 +1121,71 @@
                 return message
             end
 
-            local function run(message)
+            local function handle(message)
                 message = normalize(message)
 
                 for _, command in library.commands do
-                    if find(command.keys, message) then
-                        command.run()
-                        return
+                    for _, alias in command.aliases do
+                        if message == alias then
+                            command.run("")
+                            return
+                        elseif message:sub(1, #alias + 1) == alias .. " " then
+                            command.run(message:sub(#alias + 2))
+                            return
+                        end
                     end
                 end
             end
 
             -- old chat
-            library:connection(lp.Chatted, run)
+            library:connection(lp.Chatted, handle)
 
-            -- new chat (TextChatService): spaces are not allowed in aliases, so /q and /r
+            -- new chat (TextChatService): only the short single-word alias can be registered
             pcall(function()
                 local tcs = game:GetService("TextChatService")
 
                 for _, command in library.commands do
                     local object = Instance.new("TextChatCommand")
-                    object.Name = "Milenium_" .. command.name
-                    object.PrimaryAlias = command.keys[2]
+                    object.Name = "Milenium_" .. command.name:gsub(" ", "_")
+                    object.PrimaryAlias = command.aliases[#command.aliases]
                     object.Parent = tcs
 
-                    library:connection(object.Triggered, command.run)
+                    library:connection(object.Triggered, function(_, text)
+                        handle(text)
+                    end)
+                end
+            end)
+
+            -- speed / jump power stay applied after respawn and when the game tries to change them
+            library:connection(run.Heartbeat, function()
+                local humanoid = get_humanoid()
+
+                if not humanoid then
+                    return
+                end
+
+                if library.state.speed and humanoid.WalkSpeed ~= library.state.speed then
+                    humanoid.WalkSpeed = library.state.speed
+                end
+
+                if library.state.jump_power then
+                    if not humanoid.UseJumpPower then
+                        humanoid.UseJumpPower = true
+                    end
+
+                    if humanoid.JumpPower ~= library.state.jump_power then
+                        humanoid.JumpPower = library.state.jump_power
+                    end
+                end
+            end)
+
+            library:connection(uis.JumpRequest, function()
+                if library.state.infinite_jump then
+                    local humanoid = get_humanoid()
+
+                    if humanoid then
+                        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                    end
                 end
             end)
         end
@@ -1096,7 +1198,8 @@
             local section = column:section({name = "Chat commands", size = 1, default = true, icon = "rbxassetid://139628202576511"})
 
             for _, command in library.commands do
-                section:label({name = string.format("%s  <%s> - %s", command.keys[1], command.name, command.info)})
+                section:label({name = string.format("%s  <%s> - %s", command.usage, command.name, command.info)})
+                section:label({name = "short: " .. command.short})
             end
 
             local column = main:column({})
