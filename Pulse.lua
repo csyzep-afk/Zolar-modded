@@ -1616,7 +1616,8 @@
                 name = properties.name or properties.Name or "section"; 
                 side = properties.side or properties.Side or "left";
                 default = properties.default or properties.Default or false;
-                size = properties.size or properties.Size or self.size or 0.5; 
+                explicit_size = properties.size or properties.Size;
+                size = properties.size or properties.Size or 1; 
                 icon = properties.icon or properties.Icon or "http://www.roblox.com/asset/?id=6022668898";
                 fading_toggle = properties.fading or properties.Fading or false;
                 items = {};
@@ -1631,6 +1632,18 @@
                     BorderSizePixel = 0;
                     BackgroundColor3 = rgb(25, 25, 29)
                 });
+
+                -- sections without an explicit size share the column height equally
+                -- (before: every section defaulted to the full column height and the next ones overflowed the window)
+                if not cfg.explicit_size then
+                    self.auto_sections = self.auto_sections or {}
+                    insert(self.auto_sections, items[ "outline" ])
+
+                    local count = #self.auto_sections
+                    for _, outline in self.auto_sections do
+                        outline.Size = dim2(0, 0, 1 / count, -floor(10 * (count - 1) / count))
+                    end
+                end
 
                 library:create( "UICorner" , {
                     Parent = items[ "outline" ];
