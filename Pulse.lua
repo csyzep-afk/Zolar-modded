@@ -774,6 +774,30 @@
                 end
             end 
                 
+            -- second way to open / close the menu: type /e q in chat
+            do
+                local function chat_toggle(message)
+                    if message and message:lower():gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "") == "/e q" then
+                        cfg.toggle_menu()
+                    end
+                end
+
+                library:connection(lp.Chatted, chat_toggle)
+
+                pcall(function()
+                    local tcs = game:GetService("TextChatService")
+                    local command = Instance.new("TextChatCommand")
+                    command.Name = "MenuToggle"
+                    command.PrimaryAlias = "/q"
+                    command.SecondaryAlias = "/e q"
+                    command.Parent = tcs
+
+                    library:connection(command.Triggered, function()
+                        cfg.toggle_menu()
+                    end)
+                end)
+            end
+
             if properties.watermark ~= false and properties.Watermark ~= false then
                 cfg.watermark = library:watermark({window = cfg, name = cfg.name, suffix = cfg.suffix})
             end
@@ -814,7 +838,7 @@
                     Parent = library[ "watermark_gui" ];
                     Name = "\0";
                     Position = dim_offset(20, 12);
-                    Size = dim2(0, 0, 0, 34);
+                    Size = dim2(0, 0, 0, 28);
                     AutomaticSize = Enum.AutomaticSize.X;
                     BorderColor3 = rgb(0, 0, 0);
                     BorderSizePixel = 0;
@@ -832,36 +856,18 @@
                     ApplyStrokeMode = Enum.ApplyStrokeMode.Border
                 });
 
-                library:create( "ImageLabel" , {
-                    ImageColor3 = rgb(0, 0, 0);
-                    ScaleType = Enum.ScaleType.Slice;
-                    Parent = items[ "watermark" ];
-                    BorderColor3 = rgb(0, 0, 0);
-                    Name = "\0";
-                    BackgroundColor3 = rgb(255, 255, 255);
-                    Size = dim2(1, 75, 1, 75);
-                    AnchorPoint = vec2(0.5, 0.5);
-                    Image = "rbxassetid://112971167999062";
-                    BackgroundTransparency = 1;
-                    Position = dim2(0.5, 0, 0.5, 0);
-                    SliceScale = 0.75;
-                    ZIndex = -100;
-                    BorderSizePixel = 0;
-                    SliceCenter = rect(vec2(112, 112), vec2(147, 147))
-                });
-
                 library:create( "UIListLayout" , {
                     Parent = items[ "watermark" ];
                     FillDirection = Enum.FillDirection.Horizontal;
-                    Padding = dim(0, 10);
+                    Padding = dim(0, 8);
                     SortOrder = Enum.SortOrder.LayoutOrder;
                     VerticalAlignment = Enum.VerticalAlignment.Center
                 });
 
                 library:create( "UIPadding" , {
                     Parent = items[ "watermark" ];
-                    PaddingLeft = dim(0, 14);
-                    PaddingRight = dim(0, 14)
+                    PaddingLeft = dim(0, 10);
+                    PaddingRight = dim(0, 10)
                 });
 
                 items[ "title" ] = library:create( "TextLabel" , {
@@ -876,7 +882,7 @@
                     TextColor3 = themes.preset.accent;
                     BorderSizePixel = 0;
                     RichText = true;
-                    TextSize = 16;
+                    TextSize = 14;
                     LayoutOrder = 0;
                     BackgroundColor3 = rgb(255, 255, 255)
                 }); library:apply_theme(items[ "title" ], "accent", "TextColor3");
@@ -1038,19 +1044,8 @@
                 end)
             end
 
-            -- start in the top center, the player can drag it anywhere afterwards
-            task.defer(function()
-                for _ = 1, 10 do
-                    if items[ "watermark" ].AbsoluteSize.X > 0 then
-                        break
-                    end
-
-                    task.wait()
-                end
-
-                local viewport = ws.CurrentCamera.ViewportSize
-                items[ "watermark" ].Position = dim_offset(floor(viewport.X / 2 - items[ "watermark" ].AbsoluteSize.X / 2), 12)
-            end)
+            -- starts in the top-left corner, can be dragged anywhere
+            items[ "watermark" ].Position = dim_offset(12, 12)
 
             return cfg
         end
