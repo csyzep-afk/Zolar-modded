@@ -774,29 +774,7 @@
                 end
             end 
                 
-            -- second way to open / close the menu: type /e q in chat
-            do
-                local function chat_toggle(message)
-                    if message and message:lower():gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "") == "/e q" then
-                        cfg.toggle_menu()
-                    end
-                end
-
-                library:connection(lp.Chatted, chat_toggle)
-
-                pcall(function()
-                    local tcs = game:GetService("TextChatService")
-                    local command = Instance.new("TextChatCommand")
-                    command.Name = "MenuToggle"
-                    command.PrimaryAlias = "/q"
-                    command.SecondaryAlias = "/e q"
-                    command.Parent = tcs
-
-                    library:connection(command.Triggered, function()
-                        cfg.toggle_menu()
-                    end)
-                end)
-            end
+            library:init_commands()
 
             if properties.watermark ~= false and properties.Watermark ~= false then
                 cfg.watermark = library:watermark({window = cfg, name = cfg.name, suffix = cfg.suffix})
@@ -1048,6 +1026,83 @@
             items[ "watermark" ].Position = dim_offset(12, 12)
 
             return cfg
+        end
+
+        library.commands = {
+            {keys = {"/e q", "/q"}, name = "leave", info = "leave the game", run = function()
+                if not pcall(function() game:Shutdown() end) then
+                    lp:Kick("Left the game")
+                end
+            end};
+            {keys = {"/e r", "/r"}, name = "reset", info = "reset your character", run = function()
+                local character = lp.Character
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+                if humanoid then
+                    humanoid.Health = 0
+                elseif character then
+                    character:BreakJoints()
+                end
+            end};
+        }
+
+        function library:init_commands()
+            if library.commands_ready then
+                return
+            end
+
+            library.commands_ready = true
+
+            local function normalize(message)
+                message = message:lower():gsub("%s+", " ")
+                message = message:gsub("^%s+", ""):gsub("%s+$", "")
+                return message
+            end
+
+            local function run(message)
+                message = normalize(message)
+
+                for _, command in library.commands do
+                    if find(command.keys, message) then
+                        command.run()
+                        return
+                    end
+                end
+            end
+
+            -- old chat
+            library:connection(lp.Chatted, run)
+
+            -- new chat (TextChatService): spaces are not allowed in aliases, so /q and /r
+            pcall(function()
+                local tcs = game:GetService("TextChatService")
+
+                for _, command in library.commands do
+                    local object = Instance.new("TextChatCommand")
+                    object.Name = "Milenium_" .. command.name
+                    object.PrimaryAlias = command.keys[2]
+                    object.Parent = tcs
+
+                    library:connection(object.Triggered, command.run)
+                end
+            end)
+        end
+
+        function library:init_info(window)
+            window:seperator({name = "Info"})
+            local main = window:tab({name = "Info", tabs = {"Commands"}})
+
+            local column = main:column({})
+            local section = column:section({name = "Chat commands", size = 1, default = true, icon = "rbxassetid://139628202576511"})
+
+            for _, command in library.commands do
+                section:label({name = string.format("%s  <%s> - %s", command.keys[1], command.name, command.info)})
+            end
+
+            local column = main:column({})
+            local section = column:section({name = "Menu", side = "right", size = 1, default = true, icon = "rbxassetid://129380150574313"})
+            section:label({name = "Tap the watermark to open / close the menu"})
+            section:label({name = "Hold and drag the watermark to move it"})
         end
 
         function library:tab(properties)
@@ -3926,6 +3981,8 @@
         end 
 
         function library:init_config(window) 
+            library:init_info(window)
+
             window:seperator({name = "Settings"})
             local main = window:tab({name = "Configs", tabs = {"Main"}})
             
